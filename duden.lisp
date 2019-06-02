@@ -6,6 +6,8 @@
 ;; nur fuer Testzwecke - nicht fuer den kommerziellen Gebrauch !!!
 ;; -----------------------------------------------------------------------------
 
+(ql:quickload :split-sequence)
+
 ;; -----------------------------------------------------------------------------
 ;; ein paar kürzel, zur Speicherreduktion ...
 ;; -----------------------------------------------------------------------------
@@ -130,7 +132,7 @@
     "Maria")
     ))
 
-(defparameter *nounlist-männlich-singular-nom* '(
+(defparameter *nounlist-male-singular-nom* (list
 ;;    *nounlist-mensch*
     "Anruf" "Anzug" "Apfel" "April" "Arm" "Arzt" "August" "Ausweis"
     "Bahnhof" "Balkon" "Baum" "Berg" "Beruf" "Bildschirm" "Bus"
@@ -154,92 +156,145 @@
     "Vögel" "Menschen" "Staaten" "Hunde"
 ))
 
-(defparameter *die-nouns-männlich* '(
-    "der" (*nounlist-männlich-singular-nom*)
-    "des"
+(defparameter *nouns* (list
+    (list "der" (list *nounlist-male-singular-nom*)) 
+    (list "des" (list *nounlist-male-singular-nom*))
 ))
 
-(defun split (str token &aux result (len (length str)))
-(labels ((rec (i)
-  (if (< i len)
-      (let ((p (or (position token str :start i)
-                   len)))
-        (when (/= p i)
-          (push (subseq str i p) result))
-        (rec (1+ p)))
-      (reverse result))))
-(rec 0)))
+;; ----------------------------------------------------------------------------
 
-
-(defparameter *satz0_1* '())
-(setq *wrd*     "")
-(defun setup (geschlecht wort1 wort2 wortart fall)
-    (ecase geschlecht
-    (:m (setq *wrd* (search (list wort1)
-        *die-nouns-männlich* :test (function equal)))
-        (if (not *wrd*)
-            (progn (setf *wrd* #P"<leer>") (print (format nil "Sorry, kann Wort >>~A<< nicht finden." wort1)))
-            (progn (setf *satz0_1* (append *satz0_1* (cons wort1 nil)))
-            (ecase wortart
-                (:singular (ecase fall
-                    (:nominativ
-                        (setq *wrd* (search (list wort2)
-                        *nounlist-männlich-singular-nom* :test (function equal)))
-                        (if (not *wrd*)
-                            (progn (setf *wrd* #P"<leer>") (print (format nil "Sorry, kann Wort >>~A<< nicht finden !" wort2)))
-                            (progn (setf *satz0_1* (append *satz0_1* (cons wort2 nil)))))
-                )))
-                (:plural   (ecase fall
-                    (:nominativ)))
-            ))))
-    ))
-
-(defun search_mnoun(word)
-    (block nil
-    (setq *wrd* (search (list word)
-        *die-nouns-männlich* :test (function equal)))
-    (if (equal *wrd* nil)
-        (progn
-            (print (format nil "Sorry, kann das Wort >> ~A << nicht finden." word))
-            (return "<null>"))
-        (progn
-            (setf *satz0_1* (append *satz0_1* (cons word nil)))
-            (return "<true>"))
-    )
-    (if (>= *wrd* 0)
-        (progn
-            (print (format nil ">> ~A << gefunden." word))
-            (return "<true>"))
-        (progn
-            (print (format nil "Sorry, kann das Wort >> ~A << nicht finden." word))
-            (return "<null>"))
-    )
-    (return "<null>"))
-)
-
-
-(setup :m "der" "Mann" :singular :nominativ)
 
 ;; ----------------------------------
 ;; little brain, by static rules ...
 ;; ----------------------------------
 (terpri)
-;
-(setq l2 *satz0_1*)             ;; just backup
-(setq l1 (read-line))           ;; user input text
-(setq l1 (split l1 #\space))    ;; skip spaces
+;;
 
-;; start scan ...
-(setq w1 (string (nth 0 l1)))   ;; zuerst: die, der, ...
-(setq w2 (search_mnoun w1))     ;; -"-   : männlich
-
-(if (string= w2 "<true>")       ;; is male ?
-    (if (>= (length l1) 1)
-        (progn
-            (print *nounlist-männlich-singular-nom*)
+;; -------------------------------------------
+;; type ":exit" to exit the bottles loop ...
+;; -------------------------------------------
+(loop for bottles from 0 to 99
+    do (
+    progn
+        ;; factory default's ...
+        (setq satz-error 0)
+        (setq satz-ende  0)
+        ;;
+        (print "notice: type :exit to exit the loop")
+        (print "Ihre Eingabe: ")
+        ;;
+        (setq wordlist (loop for word in (split-sequence:split-sequence #\Space (read-line)
+            :remove-empty-subseqs t)
+            for index from 0 collect (list index word))
         )
+        ;;
+        (if (string= (nth 1 (nth 0 wordlist)) ":exit")
+        (progn
+            (setq satz-error -1)
+            (print "ENDE")
+            (exit)                  ;; <---- caution !
+            (return)
+            ))
+
+        (print wordlist)
+        (print (list-length wordlist))
+
+        ;; start scan ...
+        (loop for words-record from 0 to (list-length wordlist)
+        do (
+        progn
+            (setq words-word (nth 1 (nth words-record wordlist)))
+            (if (eql words-word nil)
+                (return)
+            )
+            (loop for nouns-record from 0 to (list-length *nouns*)
+            do (
+            progn
+                (setq noun-word (nth 0 (nth nouns-record *nouns*)))
+                (if (string= noun-word words-word)
+                (progn
+                    (print "word ok")
+                    (if (> (list-length wordlist) 1)
+                    (progn
+                        (setq words-record (+ 1 words-record))
+                        (setq male-noun-list (nth 1 (nth nouns-record *nouns*)))
+                        (setq satz-error 0)
+                        (loop for male-name-record from 0 to (list-length male-noun-list)
+                        do (
+                        progn
+                            (setq male-word1 (nth 1 (nth words-record wordlist)))
+                            (setq male-word2 (nth male-name-record))
+                            (if (string= male-word1 male-word2)
+                            )
+                        )))
+                    (progn
+                        (setq satz-ende  1)
+                        (setq satz-error 0)
+                        (return)
+                    )))
+                (return)))
+            when (>= (and satz-error satz-ende) 1)
+            do (return))
+            ;;
+            (if (>= satz-ende 1)
+            (progn
+                (if (= satz-error 0)
+                (progn (print "Satz endet bei Eingabe, enthält KEINE Fehler !"))
+                (progn (print "Satz endet bei Eingabe, enthält Fehler !")
+                       (return))
+                )
+            )
+            (progn
+                (print "Satz endet bei Eingabe, enthält Fehler !")
+                (return)
+            )))
+        when (>= (and satz-error satz-ende) 1)
+        do (return))
     )
 )
+(exit)
 
-;
-;;(print (equal l2 l1))
+
+;; ----------------------------------------------------------------------------
+;;
+;;                    +------------- := "der" (0. Position
+;;                    |      +------ := "der" (1. Eintrag  -> nouns
+;;                    |      |
+(setq   der-test (nth 0 (nth 0 *nouns*)))
+(print  der-test)
+(print "---")
+
+;; ----------------------------------------------------------------------------
+;;
+;;                    +--------------------------- := nounslist-male -> Anruf, Anzug, ...
+;;                    |      +-------------------- := list position 1.
+;;                    |      |      +------------- := "der" (2. Position
+;;                    |      |      |      +------ := nouns ->  (1. Eintrag: "der"
+;;                    |      |      |      |
+(setq anruf-test (nth 0 (nth 0 (nth 1 (nth 0 *nouns*)))))
+(setq anzug-test (nth 1 (nth 0 (nth 1 (nth 0 *nouns*)))))
+(setq apfel-test (nth 2 (nth 0 (nth 1 (nth 0 *nouns*)))))
+
+(terpri)
+;;
+
+(print anruf-test)
+(print anzug-test)
+(print apfel-test)
+
+(setq  result
+    (if (string= "der" der-test)
+        (print "der")))
+(print result)
+
+;(print wA02)
+
+;(if (>= wA02 1)
+;    (progn
+;        (print "ist männlich")
+;        (setq  wB01 (string (nth 1 (nth 1 wordlist))))
+;        (print wB01)
+;    )
+;    (progn (print "Fehler")))
+
+
